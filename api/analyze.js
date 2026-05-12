@@ -10,11 +10,12 @@ export default async function handler(req, res) {
 
   if (!text) return res.status(400).json({ error: 'Missing text' });
 
-  const sample = text.slice(0, 4000);
+  const sample = text.slice(0, 5000);
   const safeVoices = Array.isArray(voices) ? voices : [];
   const voiceList = safeVoices.map(v => `- ${v.id}: ${v.name} (${v.tag})`).join('\n');
 
-  const prompt = `You are analyzing a book excerpt to identify characters and assign TTS voices for an audiobook.
+  const prompt = `You are an expert audiobook producer analyzing a Korean/English novel excerpt.
+Your task: identify NAMED HUMAN CHARACTERS and assign TTS voices.
 
 BOOK EXCERPT:
 """
@@ -24,38 +25,37 @@ ${sample}
 AVAILABLE VOICES:
 ${voiceList}
 
-TASK:
-1. Identify all speaking characters (including "narrator"/"나레이터" for non-dialogue text)
-2. Assign the most fitting voice from the list above to each character
-3. Return ONLY valid JSON, no explanation
+RULES (CRITICAL):
+- Characters must be PROPER NOUN NAMES of actual people/beings in the story (e.g. 고결, 형, 엄마, John)
+- DO NOT use verb phrases, action phrases, or dialogue tags as character names (e.g. "말했다", "스태프들에게", "자르며", "슬쩍" are NOT characters)
+- DO NOT use location names, object names, or abstract words as characters
+- Always include "narrator" as the FIRST entry (for all non-dialogue narration text)
+- Maximum 8 characters total (including narrator)
+- Assign voices that match the character's personality, gender, and role
+- Use distinct hex colors for each character
+- In dialogue_patterns, list ONLY the quotation mark styles used (e.g. ["\"...\"", "「...」"])
 
-OUTPUT FORMAT (strict JSON, no markdown):
+OUTPUT: Return ONLY valid JSON, no markdown fences, no explanation.
+
 {
   "characters": [
     {
       "name": "narrator",
-      "description": "narration / description text",
-      "voice_id": "<voice id from list>",
+      "description": "narration and scene description",
+      "voice_id": "<id from voice list>",
       "voice_name": "<voice name>",
-      "color": "#hex color"
+      "color": "#hex"
     },
     {
-      "name": "캐릭터이름",
-      "description": "brief role description",
-      "voice_id": "<voice id>",
-      "voice_name": "<voice name>",
-      "color": "#hex color"
+      "name": "고결",
+      "description": "main protagonist, young male",
+      "voice_id": "<id>",
+      "voice_name": "<name>",
+      "color": "#hex"
     }
   ],
-  "dialogue_patterns": ["pattern1", "pattern2"]
-}
-
-Rules:
-- Always include "narrator" as first character
-- Max 8 characters
-- Assign distinct, thematically fitting voices
-- Use distinct hex colors for each character
-- dialogue_patterns: list of dialogue quote styles found (e.g. ['"..."', '"..."', '「...」'])`;
+  "dialogue_patterns": ["\"...\""]
+}`;
 
   try {
     let resultText = '';
@@ -72,7 +72,7 @@ Rules:
         },
         body: JSON.stringify({
           model: activeClaudeModel,
-          max_tokens: 1024,
+          max_tokens: 1200,
           messages: [{ role: 'user', content: prompt }],
         }),
       });
@@ -90,7 +90,7 @@ Rules:
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 1024, temperature: 0.3 },
+            generationConfig: { maxOutputTokens: 1200, temperature: 0.2 },
           }),
         }
       );
@@ -111,8 +111,8 @@ Rules:
         },
         body: JSON.stringify({
           model: customModel,
-          max_tokens: 1024,
-          temperature: 0.3,
+          max_tokens: 1200,
+          temperature: 0.2,
           messages: [{ role: 'user', content: prompt }],
         }),
       });
