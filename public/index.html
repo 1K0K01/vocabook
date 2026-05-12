@@ -1,0 +1,1708 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Vocabook — AI 캐릭터 오디오북</title>
+<style>
+/* ════════════════════════════════════════════
+   BASE
+════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#232736;--surface3:#2d3148;
+  --accent:#6c63ff;--accent2:#ff6584;--green:#4ade80;--yellow:#fbbf24;
+  --text:#e8eaf0;--text2:#9ca3af;--text3:#6b7280;
+  --radius:12px;--radius-sm:8px;
+}
+body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
+input,select,textarea{font:inherit;color:inherit}
+
+/* ════════════════════════════════════════════
+   LAYOUT & HEADER
+════════════════════════════════════════════ */
+.app{max-width:960px;margin:0 auto;padding:24px 16px 80px}
+header{text-align:center;margin-bottom:32px;}
+.header-title-row { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:4px; }
+header h1{font-size:2rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent; margin:0;}
+.version-badge { background: #262626; color: #d4d4d4; font-size: 0.75rem; font-weight: 700; padding: 4px 8px; border-radius: 6px; letter-spacing: 0.05em; box-shadow: 0 2px 4px rgba(0,0,0,0.2); border: 1px solid #333; }
+header p{color:var(--text2);font-size:.9rem}
+
+.card{background:var(--surface);border-radius:var(--radius);padding:20px;margin-bottom:16px;border:1px solid rgba(255,255,255,.06)}
+.card-title{font-size:.75rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.card-title .step{background:var(--accent);color:#fff;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:800}
+
+/* ════════════════════════════════════════════
+   API KEY SECTION
+════════════════════════════════════════════ */
+.provider-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.provider-tab{padding:5px 12px;border-radius:20px;font-size:.78rem;font-weight:600;border:1.5px solid var(--surface3);color:var(--text2);transition:.2s}
+.provider-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.provider-panel{display:none}
+.provider-panel.active{display:block}
+
+.key-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.key-row label{font-size:.78rem;color:var(--text2);white-space:nowrap;width:90px;flex-shrink:0}
+.key-input{flex:1;background:var(--surface2);border:1px solid var(--surface3);border-radius:var(--radius-sm);padding:8px 10px;font-size:.82rem;color:var(--text)}
+.key-input:focus{outline:none;border-color:var(--accent)}
+.key-input.ok{border-color:var(--green)}
+.key-save-btn{padding:7px 14px;background:var(--accent);color:#fff;border-radius:var(--radius-sm);font-size:.78rem;font-weight:600;white-space:nowrap}
+.key-save-btn:hover{opacity:.85}
+.key-hint{font-size:.72rem;color:var(--text3);margin-top:2px}
+
+/* ════════════════════════════════════════════
+   FILE UPLOAD
+════════════════════════════════════════════ */
+.upload-zone{border:2px dashed var(--surface3);border-radius:var(--radius);padding:32px;text-align:center;cursor:pointer;transition:.2s;position:relative}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(108,99,255,.06)}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.upload-icon{font-size:2.4rem;margin-bottom:8px}
+.upload-zone p{color:var(--text2);font-size:.88rem}
+.upload-zone small{color:var(--text3);font-size:.75rem}
+.file-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(74,222,128,.1);border:1px solid var(--green);color:var(--green);padding:5px 12px;border-radius:20px;font-size:.8rem;font-weight:600}
+
+/* ════════════════════════════════════════════
+   VOICE MANAGER
+════════════════════════════════════════════ */
+.voice-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px;margin-bottom:12px}
+.voice-item{background:var(--surface2);border:1.5px solid var(--surface3);border-radius:var(--radius-sm);padding:9px 11px;cursor:pointer;transition:.2s;position:relative}
+.voice-item:hover{border-color:var(--accent)}
+.voice-item.selected{border-color:var(--accent);background:rgba(108,99,255,.12)}
+.voice-item.custom-voice{border-color:rgba(251,191,36,.4)}
+.voice-item .vi-top{display:flex;align-items:baseline;gap:5px}
+.voice-item .vi-emoji{font-size:.9rem;line-height:1;flex-shrink:0}
+.voice-item .vi-name{font-size:.82rem;font-weight:700;line-height:1.2}
+.voice-item .vi-tag{font-size:.62rem;color:var(--text3);margin-top:3px;line-height:1.4;letter-spacing:.01em}
+/* 설명: 기본 숨김, 활성 시 표시 */
+.voice-item .vi-desc{display:none;font-size:.68rem;color:var(--text2);margin-top:6px;line-height:1.5;border-top:1px solid var(--surface3);padding-top:6px}
+.voice-item.desc-open .vi-desc{display:block}
+.vi-desc-btn{font-size:.6rem;color:var(--accent);margin-top:4px;display:inline-block;cursor:pointer;user-select:none}
+.voice-item .vi-id{font-size:.6rem;color:var(--text3);font-family:monospace;margin-top:4px;word-break:break-all;display:none}
+.voice-item.desc-open .vi-id{display:block}
+.voice-item .vi-del{position:absolute;top:5px;right:6px;font-size:.7rem;color:var(--text3);opacity:0;transition:.15s}
+.voice-item:hover .vi-del{opacity:1}
+/* 그룹 구분선 */
+.voice-group-label{font-size:.7rem;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;padding:4px 2px 2px;grid-column:1/-1;margin-top:4px}
+/* 미리듣기 버튼 */
+.vi-preview-btn{display:inline-flex;align-items:center;gap:3px;margin-top:5px;padding:3px 8px;background:transparent;border:1px solid var(--surface3);border-radius:100px;font-size:.62rem;color:var(--text2);cursor:pointer;transition:.15s;user-select:none}
+.vi-preview-btn:hover{border-color:var(--accent);color:var(--accent)}
+.vi-preview-btn.playing{border-color:var(--accent2);color:var(--accent2);background:rgba(139,83,255,.1)}
+.vi-preview-btn.loading{opacity:.6;cursor:wait}
+.vi-preview-btn .pb-icon{font-size:.75rem}
+
+.add-voice-box{background:var(--surface2);border:1.5px dashed var(--surface3);border-radius:var(--radius-sm);padding:14px;margin-top:4px}
+.add-voice-box h4{font-size:.78rem;font-weight:700;color:var(--yellow);margin-bottom:10px}
+.add-voice-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.add-voice-row input{flex:1;min-width:100px;background:var(--surface);border:1px solid var(--surface3);border-radius:6px;padding:6px 8px;font-size:.78rem}
+.add-voice-row input:focus{outline:none;border-color:var(--yellow)}
+.add-voice-btn{padding:6px 12px;background:var(--yellow);color:#000;border-radius:6px;font-size:.78rem;font-weight:700;white-space:nowrap}
+.add-voice-btn:hover{opacity:.85}
+.custom-voice-hint{font-size:.7rem;color:var(--text3);margin-top:4px}
+
+/* ════════════════════════════════════════════
+   ANALYZE
+════════════════════════════════════════════ */
+.analyze-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--accent),#8b83ff);color:#fff;border-radius:var(--radius-sm);font-size:.95rem;font-weight:700;letter-spacing:.02em;transition:.2s}
+.analyze-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 20px rgba(108,99,255,.35)}
+.analyze-btn:disabled{opacity:.5;cursor:not-allowed}
+.analyze-progress{margin-top:12px;display:none}
+.progress-bar{height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;margin-bottom:8px}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;transition:width .4s}
+.progress-text{font-size:.78rem;color:var(--text2);text-align:center}
+
+/* ════════════════════════════════════════════
+   CHARACTER BADGES
+════════════════════════════════════════════ */
+.character-list{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.char-badge{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:20px;font-size:.8rem;font-weight:600;cursor:pointer;border:2px solid transparent;transition:.2s}
+.char-badge.active{box-shadow:0 0 0 2px #fff2}
+.char-badge .cb-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.char-badge .cb-voice{font-size:.7rem;opacity:.75;margin-left:2px}
+
+.voice-picker{background:var(--surface2);border-radius:var(--radius-sm);padding:12px;margin-top:8px;display:none}
+.voice-picker.open{display:block}
+.voice-picker select{width:100%;background:var(--surface);border:1px solid var(--surface3);border-radius:6px;padding:7px 8px;font-size:.82rem;color:var(--text)}
+
+/* ════════════════════════════════════════════
+   PLAYER
+════════════════════════════════════════════ */
+.player-controls{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.play-btn{width:44px;height:44px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;transition:.15s}
+.play-btn:hover{transform:scale(1.06)}
+.speed-btn{background:var(--surface2);border:1px solid var(--surface3);border-radius:20px;padding:5px 12px;font-size:.8rem;font-weight:600}
+.auto-btn{background:var(--surface2);border:1px solid var(--surface3);border-radius:20px;padding:5px 12px;font-size:.78rem;font-weight:600}
+.auto-btn.on{background:rgba(74,222,128,.15);border-color:var(--green);color:var(--green)}
+.font-btn{background:var(--surface2);border:1px solid var(--surface3);border-radius:20px;padding:5px 10px;font-size:.8rem}
+
+.paragraphs{padding:4px 0 8px;display:flex;flex-direction:column;gap:4px}
+
+/* 단락 카드 - AudiFlo 스타일 */
+.para{
+  padding:13px 14px 13px 16px;
+  border-radius:10px;
+  cursor:pointer;
+  border-left:3px solid transparent;
+  transition:background .15s, border-color .15s, transform .15s;
+  display:flex;align-items:flex-start;gap:10px;
+  line-height:1.75;
+  position:relative;
+  overflow:hidden;
+}
+.para::before{
+  content:'';
+  position:absolute;inset:0;
+  background:var(--char-color,transparent);
+  opacity:0;
+  transition:opacity .25s;
+  pointer-events:none;
+}
+.para:hover::before{opacity:.05}
+.para:hover{border-left-color:rgba(255,255,255,.15)}
+
+/* 재생 중 단락 - 핵심 스타일 */
+.para.playing{
+  border-left-color:var(--char-color,var(--accent));
+  transform:none;
+}
+.para.playing::before{opacity:.1}
+.para.playing .para-text{
+  color:#fff;
+  font-size:calc(var(--para-fs,1rem) + .06rem);
+}
+
+/* 이미 재생된 단락 - 흐리게 */
+.para.played .para-text{opacity:.38;color:var(--text3)}
+.para.played .play-para{opacity:0!important}
+
+.para .play-para{
+  width:26px;height:26px;
+  background:rgba(255,255,255,.08);
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.65rem;flex-shrink:0;
+  opacity:0;transition:.15s;
+  color:var(--char-color,var(--accent));
+  border:1px solid var(--char-color,transparent);
+}
+.para:hover .play-para{opacity:1}
+.para.playing .play-para{opacity:1;background:var(--char-color,var(--accent));color:#fff}
+
+.para .para-text{flex:1;font-size:var(--para-fs,1rem);transition:color .2s,font-size .2s}
+
+/* 캐릭터 이름 라벨 (대화문에만 표시) */
+.para .char-label{
+  font-size:.6rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--char-color,var(--text3));
+  margin-bottom:3px;opacity:.8;display:none;
+}
+.para.is-dialogue .char-label{display:block}
+
+.para .char-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:10px;background:var(--char-color,var(--text3))}
+
+/* font size levels */
+.fs-sm{--para-fs:.88rem}
+.fs-md{--para-fs:1rem}
+.fs-lg{--para-fs:1.15rem}
+
+/* ════════════════════════════════════════════
+   AUDIO BAR — AudiFlo 스타일
+════════════════════════════════════════════ */
+.audio-bar{
+  position:fixed;bottom:0;left:0;right:0;
+  background:rgba(13,14,20,.97);
+  backdrop-filter:blur(16px);
+  border-top:1px solid rgba(255,255,255,.07);
+  padding:10px 16px 14px;
+  z-index:100;
+  display:none;
+}
+/* 상단: 현재 캐릭터 + 텍스트 */
+.now-playing-row{
+  display:flex;align-items:center;gap:8px;
+  margin-bottom:10px;min-height:36px;
+}
+.now-char-dot{
+  width:32px;height:32px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;flex-shrink:0;
+  transition:background .3s;
+}
+.now-char-info{flex:1;min-width:0}
+.now-char{font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:1px;transition:color .3s}
+.now-text{font-size:.82rem;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4}
+
+/* 프로그레스 바 */
+.player-progress{
+  height:3px;background:rgba(255,255,255,.1);border-radius:2px;
+  margin-bottom:10px;overflow:hidden;
+}
+.player-progress-fill{height:100%;background:var(--now-char-color,var(--accent));border-radius:2px;transition:width .4s linear,background .3s}
+
+/* 컨트롤 */
+.player-controls{display:flex;align-items:center;justify-content:space-between}
+.ctrl-group{display:flex;align-items:center;gap:6px}
+.play-btn{
+  width:48px;height:48px;background:var(--now-char-color,var(--accent));
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:1.2rem;flex-shrink:0;transition:background .3s,transform .15s;
+  box-shadow:0 4px 16px rgba(0,0,0,.35);
+}
+.play-btn:hover{transform:scale(1.07)}
+.play-btn:active{transform:scale(.93)}
+.ctrl-btn{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1rem;color:var(--text2);transition:.15s;
+}
+.ctrl-btn:hover{color:var(--text);background:rgba(255,255,255,.07)}
+.speed-pill{
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  border-radius:100px;padding:4px 10px;
+  font-size:.75rem;font-weight:700;color:var(--text2);
+  transition:.15s;
+}
+.speed-pill:hover{border-color:var(--accent);color:var(--accent)}
+.auto-pill{
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  border-radius:100px;padding:4px 10px;
+  font-size:.7rem;font-weight:700;color:var(--text3);
+  transition:.15s;
+}
+.auto-pill.on{background:rgba(74,222,128,.15);border-color:var(--green);color:var(--green)}
+.audio-bar-speed{font-size:.78rem;color:var(--text2)}
+
+/* ════════════════════════════════════════════
+   MISC
+════════════════════════════════════════════ */
+.narrator-voice-row{display:flex;align-items:center;gap:8px;margin-bottom:0}
+.narrator-voice-row label{font-size:.78rem;color:var(--text2);white-space:nowrap}
+.narrator-voice-row select{flex:1;background:var(--surface2);border:1px solid var(--surface3);border-radius:var(--radius-sm);padding:7px 8px;font-size:.82rem;color:var(--text)}
+
+.toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--surface3);color:var(--text);padding:8px 18px;border-radius:20px;font-size:.82rem;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+
+.tag{display:inline-block;padding:2px 7px;border-radius:10px;font-size:.65rem;font-weight:700;background:var(--surface3);color:var(--text2)}
+.tag.gemini{background:rgba(74,222,128,.15);color:var(--green)}
+.tag.claude{background:rgba(108,99,255,.2);color:#a5b4fc}
+.tag.custom{background:rgba(251,191,36,.15);color:var(--yellow)}
+.tag.free{background:rgba(74,222,128,.2);color:var(--green)}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="header-title-row">
+    <h1>📖 Vocabook</h1>
+    <span class="version-badge">V1.0</span>
+  </div>
+  <p>AI Character 오디오북 리더</p>
+</header>
+
+<!-- ══════════════════════════════════════
+  STEP 1 — API KEYS
+══════════════════════════════════════ -->
+<div class="card" id="card-keys">
+  <div class="card-title"><span class="step">1</span> AI 프로바이더 &amp; API 키 설정</div>
+
+  <!-- Minimax keys -->
+  <div style="margin-bottom:14px">
+    <div class="key-row">
+      <label>Minimax Key</label>
+      <input class="key-input" id="minimax-key" type="password" placeholder="eyJ... 또는 sk-..."/>
+    </div>
+
+  </div>
+
+  <hr style="border-color:var(--surface3);margin-bottom:14px"/>
+
+  <!-- Provider selector -->
+  <div class="card-title" style="margin-bottom:10px">캐릭터 분석 AI 선택</div>
+  <div class="provider-tabs">
+    <button class="provider-tab active" data-p="claude">Claude <span class="tag claude">Anthropic</span></button>
+    <button class="provider-tab" data-p="gemini">Gemini <span class="tag free">무료</span></button>
+    <button class="provider-tab" data-p="custom">커스텀 <span class="tag custom">OpenAI-compat</span></button>
+  </div>
+
+  <!-- Claude panel -->
+  <div class="provider-panel active" id="panel-claude">
+    <div class="key-row">
+      <label>Claude Key</label>
+      <input class="key-input" id="claude-key" type="password" placeholder="sk-ant-..."/>
+    </div>
+    <div class="key-row">
+      <label>Model</label>
+      <input class="key-input" id="claude-model" type="text" value="claude-haiku-4-5-20251001"/>
+    </div>
+  </div>
+
+  <!-- Gemini panel -->
+  <div class="provider-panel" id="panel-gemini">
+    <div class="key-row">
+      <label>Gemini Key</label>
+      <input class="key-input" id="gemini-key" type="password" placeholder="AIza..."/>
+    </div>
+    <div class="key-row">
+      <label>Model</label>
+      <input class="key-input" id="gemini-model" type="text" value="gemini-2.5-pro"/>
+    </div>
+  </div>
+
+  <!-- Custom panel -->
+  <div class="provider-panel" id="panel-custom">
+    <div class="key-row">
+      <label>API Key</label>
+      <input class="key-input" id="custom-key" type="password" placeholder="sk-..."/>
+    </div>
+    <div class="key-row">
+      <label>Base URL</label>
+      <input class="key-input" id="custom-url" type="text" placeholder="https://api.linkapi.ai/v1"/>
+    </div>
+    <div class="key-row">
+      <label>Model</label>
+      <input class="key-input" id="custom-model" type="text" placeholder="gpt-4o, deepseek-chat, ..."/>
+    </div>
+  </div>
+
+  <button class="key-save-btn" id="save-keys-btn" style="margin-top:12px;width:100%">키 저장 (세션)</button>
+</div>
+
+<!-- ══════════════════════════════════════
+  STEP 2 — FILE UPLOAD
+══════════════════════════════════════ -->
+<div class="card">
+  <div class="card-title"><span class="step">2</span> 파일 업로드</div>
+  <div class="upload-zone" id="upload-zone">
+    <input type="file" id="file-input" accept=".epub,.pdf,.txt,.docx"/>
+    <div class="upload-icon">📂</div>
+    <p>EPUB · PDF · TXT · DOCX</p>
+    <small>파일을 끌어다 놓거나 탭하여 선택</small>
+  </div>
+  <div id="file-badge-wrap" style="margin-top:10px;display:none">
+    <span class="file-badge" id="file-badge">✓ <span id="file-name"></span></span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+  STEP 3 — VOICE MANAGER
+══════════════════════════════════════ -->
+<div class="card">
+  <div class="card-title"><span class="step">3</span> Minimax 보이스 풀 관리</div>
+  <p style="font-size:.78rem;color:var(--text2);margin-bottom:12px">체크된 보이스가 캐릭터 분석 시 AI 배정 대상에 포함됩니다.</p>
+  <div class="voice-grid" id="voice-grid"></div>
+
+  <!-- Custom voice add -->
+  <div class="add-voice-box">
+    <h4>＋ 커스텀 보이스 추가</h4>
+    <div class="add-voice-row">
+      <input id="cv-id"   placeholder="voice_id (예: male-qn-qingse)" />
+      <input id="cv-name" placeholder="이름 (예: 청세)" />
+      <input id="cv-tag"  placeholder="태그 (예: 남성 맑고 젊음)" />
+      <button class="add-voice-btn" id="add-voice-btn">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+  STEP 4 — ANALYZE
+══════════════════════════════════════ -->
+<div class="card">
+  <div class="card-title"><span class="step">4</span> 캐릭터 분석</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:.82rem;color:var(--text2)">
+    <span id="analyze-provider-label">선택된 AI: Claude</span>
+  </div>
+  <button class="analyze-btn" id="analyze-btn" disabled>AI로 캐릭터 자동 분석</button>
+  <div class="analyze-progress" id="analyze-progress">
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    <div class="progress-text" id="progress-text">텍스트를 분석하고 있습니다…</div>
+  </div>
+
+  <div id="char-section" style="margin-top:16px;display:none">
+    <div class="character-list" id="char-list"></div>
+    <div class="voice-picker" id="voice-picker">
+      <div style="font-size:.78rem;color:var(--text2);margin-bottom:6px" id="picker-label">목소리 변경</div>
+      <select id="picker-select"></select>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+  STEP 5 — NARRATOR DEFAULT VOICE
+══════════════════════════════════════ -->
+<div class="card">
+  <div class="card-title"><span class="step">5</span> 내레이터 기본 목소리</div>
+  <div class="narrator-voice-row">
+    <label>기본 목소리</label>
+    <select id="narrator-voice"></select>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+  STEP 6 — PLAYER
+══════════════════════════════════════ -->
+<div class="card">
+  <div class="card-title"><span class="step">6</span> 오디오북</div>
+  <div class="player-controls">
+    <button class="play-btn" id="play-btn" title="재생/일시정지">▶</button>
+    <button class="speed-btn" id="speed-btn">1.0×</button>
+    <button class="auto-btn" id="auto-btn">자동재생 OFF</button>
+    <button class="font-btn" id="font-btn" title="글자 크기">가A</button>
+    <span style="flex:1"></span>
+    <span id="para-counter" style="font-size:.75rem;color:var(--text3)">— / —</span>
+  </div>
+  <div class="paragraphs fs-md" id="paragraphs">
+    <p style="color:var(--text3);font-size:.88rem;text-align:center;padding:32px 0">재생할 단락을 선택하거나 ▶ 를 누르세요</p>
+  </div>
+</div>
+
+</div>
+
+<!-- Audio bar — AudiFlo 스타일 -->
+<div class="audio-bar" id="audio-bar">
+  <!-- 캐릭터 + 현재 텍스트 -->
+  <div class="now-playing-row">
+    <div class="now-char-dot" id="now-char-dot" style="background:#6c63ff22">🎙</div>
+    <div class="now-char-info">
+      <div class="now-char" id="now-char" style="color:var(--accent)">—</div>
+      <div class="now-text" id="now-text">재생할 단락을 선택하세요</div>
+    </div>
+  </div>
+  <!-- 프로그레스 바 -->
+  <div class="player-progress">
+    <div class="player-progress-fill" id="player-progress-fill" style="width:0%"></div>
+  </div>
+  <!-- 컨트롤 -->
+  <div class="player-controls">
+    <div class="ctrl-group">
+      <button class="auto-pill" id="auto-btn" onclick="toggleAuto()">🔁 자동</button>
+      <button class="ctrl-btn" onclick="skipPara(-1)" title="이전">⏮</button>
+    </div>
+    <button class="play-btn" id="ab-play-btn" onclick="togglePlay()">▶</button>
+    <div class="ctrl-group">
+      <button class="ctrl-btn" onclick="skipPara(1)" title="다음">⏭</button>
+      <button class="speed-pill" id="ab-speed" onclick="cycleSpeed()">1.0×</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<script>
+const BUILTIN_VOICES = [
+  // ── 남성 · 청소년 / 청년 ──────────────────────────────
+  {
+    id:'Korean_ReliableYouth', name:'믿음직한 소년', emoji:'🌟',
+    tag:'남성 · 소년 · 밝음 · 영웅적',
+    desc:'밝고 소년다우며 발성이 강합니다. 애니메이션 더빙·판타지 RPG·오디오 드라마의 믿음직한 젊은 모험가(메인 주인공, 충성스러운 파트너, 든든한 전사 에너지)에 어울립니다.'
+  },
+  {
+    id:'Korean_IntellectualSenior', name:'사색하는 소년', emoji:'🍃',
+    tag:'남성 · 소년 · 섬세함 · 감성적',
+    desc:'숨소리 섞인 부드러운 울림과 시적인 발음으로 차분하고 사색적입니다. 다정하고 순수한 미소년 주인공, 방랑자나 철학자 느낌에 어울립니다.'
+  },
+  {
+    id:'Korean_ColdYoungMan', name:'차가운 청년', emoji:'❄️',
+    tag:'남성 · 소년 · 냉담 · 신비로움',
+    desc:'부드럽고 차분하며 약간 숨소리가 섞여 거리감 있는 느낌. 마지못해 나서는 냉담하고 신비로운 영웅, 서늘한 미인 캐릭터에 어울립니다.'
+  },
+  {
+    id:'Korean_LonelyWarrior', name:'고독한 전사', emoji:'⚔️',
+    tag:'남성 · 청년 · 허스키 · 호소력 · 상처 입은 소년',
+    desc:'허스키하고 크며 투지와 피로감을 담은 극적인 목소리. RPG 대화·역사 내러티브·전투 컷씬의 끈질긴 수호자, 상처 입은 소년 캐릭터에 어울립니다.'
+  },
+  {
+    id:'Korean_CheerfulCoolJunior', name:'쾌활한 주인공', emoji:'⚡',
+    tag:'남성 · 청년 · 밝음 · 쾌활 · 에너지',
+    desc:'밝고 상쾌하며 에너지가 넘칩니다. RPG·애니메이션 더빙의 영웅, 라이벌, 카리스마 넘치는 메인 주인공에 어울립니다.'
+  },
+  {
+    id:'Korean_WiseTeacher', name:'전술적 청년', emoji:'🧭',
+    tag:'남성 · 청년 · 명확 · 결단력 · 리더',
+    desc:'명확하고 밝으며 발성이 강합니다. MOBA 상황 안내·액션 애니 씬·RPG 컷씬의 분대장, 에이스 파일럿, 젊은 천재 에너지에 어울립니다.'
+  },
+  // ── 남성 · 성인 / 중년 ──────────────────────────────
+  {
+    id:'Korean_radio_announcer_vv1', name:'라디오 아나운서', emoji:'📻',
+    tag:'남성 · 성인 · 따뜻함 · 내레이션 · 오디오북',
+    desc:'부드럽고 깊으며 스토리텔링에 적합한 감정적 울림. 문학 오디오북·팟캐스트 인트로·감성 브랜드 영상에 이상적입니다.'
+  },
+  {
+    id:'Korean_CalmGentleman', name:'침착한 신사', emoji:'🎩',
+    tag:'남성 · 성인 · 깊고 부드러움 · 카리스마',
+    desc:'깊고 부드럽고 울림 있는 성숙한 목소리. 조용한 지혜와 흔들림 없는 위엄, 압도적 카리스마의 미남 주연에 어울립니다.'
+  },
+  {
+    id:'Korean_DominantMan', name:'금욕적 지배자', emoji:'🖤',
+    tag:'남성 · 성인 · 깊음 · 절제 · 강렬',
+    desc:'깊고 차분하며 숨소리 섞인 절제된 발음. 고독한 영웅 또는 압도적인 라이벌의 존재감, 트레일러 내레이션에 어울립니다.'
+  },
+  {
+    id:'Korean_ConfidentBoss', name:'자신만만 보스', emoji:'🎲',
+    tag:'남성 · 중년 · 거칠고 허스키 · 누아르',
+    desc:'깊고 거칠며 허스키한 누아르풍 권위. 범죄 드라마·악당 대화·카지노 스타일 스토리텔링의 오만한 보스에 어울립니다.'
+  },
+  {
+    id:'Korean_StrictBoss', name:'위압적 보스', emoji:'👹',
+    tag:'남성 · 중년 · 우렁참 · 악당 · 위압',
+    desc:'깊고 거칠고 우렁차며 지배적인 드라마틱한 전달력. RPG 악당·애니메이션의 적대자, 군벌급 위협에 어울립니다.'
+  },
+  {
+    id:'Korean_GentleBoss', name:'차가운 귀족', emoji:'🌑',
+    tag:'남성 · 중년 · 낮음 · 카리스마 · 조용한 위협',
+    desc:'낮고 부드러우며 울림 있는 절제된 목소리. 차가운 자신감과 조용한 위협의 암살자 또는 무자비한 사령관에 어울립니다.'
+  },
+  // ── 남성 · 특별 (커스텀 클론) ──────────────────────────
+  {
+    id:'moss_audio_7705a32b-27b1-11f1-8a04-b60a20904c95', name:'능글남', emoji:'😏',
+    tag:'남성 · 청년 · 능글맞음 · 자신감 · 인기남',
+    desc:'여성향 게임의 만인의 연인. 건방지고 여유롭고 능글맞지만 미워할 수 없는 소꿉친구·인기남 캐릭터에 완벽합니다.'
+  },
+  {
+    id:'moss_audio_70bc803d-285a-11f1-9e80-a2d37c00126e', name:'다정남', emoji:'🌸',
+    tag:'남성 · 중년 · 따뜻함 · 다정함 · 시낭송',
+    desc:'온화한 군주 또는 성숙하고 기품 있는 다정한 연상 캐릭터. 로맨틱 내러티브·시 낭송에 어울리는 중후하고 따스한 목소리.'
+  },
+  {
+    id:'moss_audio_a1570516-27bf-11f1-bd1c-42ad608c28be', name:'계략남', emoji:'🃏',
+    tag:'남성 · 청년 · 젠틀함 · 복흑 · 위험한 매력',
+    desc:'겉은 나긋나긋하고 예의 바르지만 속을 알 수 없는 치명적 매력의 복흑 귀족 청년. 로맨스 판타지의 두 얼굴 남주에 찰떡.'
+  },
+  // ── 여성 · 소녀 / 청년 ──────────────────────────────
+  {
+    id:'Korean_PowerfulGirl', name:'든든한 소녀', emoji:'💪',
+    tag:'여성 · 소녀 · 밝음 · 다정함 · 헌신',
+    desc:'부드럽고 가볍고 깔끔하며 다정한 말투. 비주얼 노벨·캐릭터 드라마의 충성스러운 달콤함, 어린 동생·헌신적인 집사에 어울립니다.'
+  },
+  {
+    id:'Korean_BossyMan', name:'자신감 소녀', emoji:'😤',
+    tag:'여성 · 소녀 · 밝음 · 에너지 · 마스코트',
+    desc:'밝고 에너지 넘치며 날카롭고 또렷한 빠른 발음. RPG 마스코트·조수·정보 제공자의 자신감 넘치는 열정에 어울립니다.'
+  },
+  {
+    id:'Korean_EnchantingSister', name:'매혹적인 누나', emoji:'🌙',
+    tag:'여성 · 청년 · 관능적 · 세련 · 츤데레',
+    desc:'부드럽고 관능적이며 세련된 성숙한 느낌. 멋진 언니/누나의 자신감, 츤데레 느낌, AI 비서 또는 매혹적인 멘토 톤에 어울립니다.'
+  },
+  {
+    id:'Korean_ReliableSister', name:'믿음직한 언니', emoji:'🦅',
+    tag:'여성 · 청년 · 허스키 · 쿨함 · 리더',
+    desc:'허스키하고 쿨하며 단호한 리듬감. 시스템 UI 음성·RPG 대화·애니 더빙의 캡틴급 신뢰성에 어울립니다.'
+  },
+  {
+    id:'Korean_SassyGirl', name:'발랄한 소녀', emoji:'✨',
+    tag:'여성 · 소녀 · 밝음 · 통통 튀는 · 츤데레',
+    desc:'밝고 맑고 젊음이 넘치며 통통 튀는 생기. 인터랙티브 게임·애니 더빙의 건방진 여동생, 에너지 넘치는 학생 캐릭터에 어울립니다.'
+  },
+  {
+    id:'Korean_ChildhoodFriendGirl', name:'소꿉친구 소녀', emoji:'🌻',
+    tag:'여성 · 청년 · 밝음 · 결단력 · 조언자',
+    desc:'밝고 상쾌하며 결단력 있고 설득력 있는 목소리. RPG 대화·애니 더빙의 날카로운 조언자, 전략가, 활기찬 톰보이에 어울립니다.'
+  },
+  {
+    id:'Korean_BraveFemaleWarrior', name:'용감한 전사', emoji:'🗡️',
+    tag:'여성 · 청년 · 활기참 · 낙관 · 베스트 프렌드',
+    desc:'밝고 활기차며 수정처럼 맑고 통통 튀는 페이스. 캐릭터 소개·파티 대화의 긍정적 낙관주의, 베스트 프렌드 영웅 에너지에 어울립니다.'
+  },
+  {
+    id:'Korean_CalmLady', name:'품위 있는 여인', emoji:'👑',
+    tag:'여성 · 청년 · 차분함 · 품위 · 여황제',
+    desc:'부드럽고 품위 있고 차분하며 깊이 있는 권위. 판타지 RPG·비주얼 노벨의 여황제나 대사제 같은 제왕의 위엄에 완벽합니다.'
+  },
+  {
+    id:'Korean_SoothingLady', name:'따뜻한 멘토', emoji:'🕯️',
+    tag:'여성 · 청년 · 따뜻함 · 벨벳 · 다정함',
+    desc:'따뜻하고 부드럽고 벨벳 같으며 장난스러운 면모. 판타지 애니메이션의 사서 매력, 은퇴한 마법사의 따뜻함, 사랑받는 연장자에 어울립니다.'
+  },
+  {
+    id:'Korean_WiseElf', name:'현명한 엘프', emoji:'🧝',
+    tag:'여성 · 청년 · 우아함 · 신비로움 · 힐러',
+    desc:'가볍고 부드럽고 벨벳 같으며 우아하고 섬세한 억양. 판타지 RPG의 힐러·엘프 현자·마법 멘토의 차분한 공감에 어울립니다.'
+  },
+  {
+    id:'Korean_QuirkyGirl', name:'엉뚱한 소녀', emoji:'🧙',
+    tag:'여성 · 소녀 · 높은 톤 · 하이텐션 · 마법소녀',
+    desc:'밝고 높으며 약간 비음 섞인 과장된 발음. RPG·애니 시리즈의 하이텐션 조수, 괴짜 마법사, 활기찬 마법소녀 분위기에 어울립니다.'
+  },
+  {
+    id:'Korean_AirheadedGirl', name:'당돌한 소녀', emoji:'🔮',
+    tag:'여성 · 소녀 · 높은 톤 · 드라마틱 · 불손함',
+    desc:'밝고 비음 섞이고 드라마틱하며 장난스럽고 불손한 느낌. 애니메이션의 점쟁이, 츤데레 마법소녀, 카리스마 있는 기발함에 완벽합니다.'
+  },
+  {
+    id:'Korean_ColdGirl', name:'초연한 소녀', emoji:'🤖',
+    tag:'여성 · 소녀 · 차분함 · 무표정 · 신비',
+    desc:'부드럽고 숨소리 섞인 나른한 무표정. 비주얼 노벨·애니 더빙의 신비로운 소녀, 로봇, 초자연적인 존재 느낌에 완벽합니다.'
+  },
+  {
+    id:'Korean_CaringWoman', name:'다정한 여동생', emoji:'🌼',
+    tag:'여성 · 소녀 · 밝음 · 명랑 · 가상 비서',
+    desc:'밝고 달콤하며 생기 넘치고 환영하는 톤. 연애 시뮬레이션·시스템 음성·캐릭터 드라마의 메이드, 가상 비서, 친절한 여동생에 어울립니다.'
+  },
+  {
+    id:'Korean_AthleticGirl', name:'활발한 소녀', emoji:'🏃',
+    tag:'여성 · 소녀 · 밝음 · 격려 · 치어리더',
+    desc:'밝고 맑으며 경쾌하고 격려하는 리드미컬한 전달력. 비주얼 노벨·피트니스 게임의 팀 매니저, 치어리더, 베스트 프렌드 에너지에 어울립니다.'
+  },
+  // ── 여성 · 성인 / 중년 ──────────────────────────────
+  {
+    id:'Korean_news_anchor_vv1', name:'뉴스 앵커', emoji:'📺',
+    tag:'여성 · 중년 · 권위 · 내레이션 · 공식',
+    desc:'표준 발음의 클래식하고 균형 잡힌 권위 있는 방송 톤. 저녁 뉴스·진지한 보도·공식 발표·기업 보도 자료에 이상적입니다.'
+  },
+];
+
+let state = {
+  provider: 'claude',
+  keys: {},
+  voices: [],
+  customVoices: [],
+  enabledVoiceIds: new Set(BUILTIN_VOICES.map(v=>v.id)),
+  bookText: '',
+  paragraphs: [],
+  characters: [],
+  dialoguePatterns: [],
+  currentIdx: -1,
+  playing: false,
+  autoPlay: true,
+  speed: 1.0,
+  audio: null,
+  prefetchCache: {},
+  fetchingSet: new Set(),
+  fontSize: 'md',
+};
+
+function $(id){ return document.getElementById(id) }
+function toast(msg,dur=2500){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+
+function buildVoicePool(){
+  const all = [...BUILTIN_VOICES, ...state.customVoices];
+  state.voices = all.filter(v => state.enabledVoiceIds.has(v.id));
+}
+
+function renderVoiceGrid(){
+  const grid = $('voice-grid');
+  grid.innerHTML = '';
+  const all = [...BUILTIN_VOICES, ...state.customVoices];
+
+  // 그룹 구분자 삽입 (builtins는 주석 그룹별, custom은 별도)
+  const groups = [
+    { label:'남성 · 청소년 / 청년', ids:['Korean_ReliableYouth','Korean_IntellectualSenior','Korean_ColdYoungMan','Korean_LonelyWarrior','Korean_CheerfulCoolJunior','Korean_WiseTeacher'] },
+    { label:'남성 · 성인 / 중년', ids:['Korean_radio_announcer_vv1','Korean_CalmGentleman','Korean_DominantMan','Korean_ConfidentBoss','Korean_StrictBoss','Korean_GentleBoss'] },
+    { label:'남성 · 특별', ids:['moss_audio_7705a32b-27b1-11f1-8a04-b60a20904c95','moss_audio_70bc803d-285a-11f1-9e80-a2d37c00126e','moss_audio_a1570516-27bf-11f1-bd1c-42ad608c28be'] },
+    { label:'여성 · 소녀 / 청년', ids:['Korean_PowerfulGirl','Korean_BossyMan','Korean_EnchantingSister','Korean_ReliableSister','Korean_SassyGirl','Korean_ChildhoodFriendGirl','Korean_BraveFemaleWarrior','Korean_CalmLady','Korean_SoothingLady','Korean_WiseElf','Korean_QuirkyGirl','Korean_AirheadedGirl','Korean_ColdGirl','Korean_CaringWoman','Korean_AthleticGirl'] },
+    { label:'여성 · 성인 / 중년', ids:['Korean_news_anchor_vv1'] },
+  ];
+
+  const rendered = new Set();
+
+  function appendVoiceCard(v){
+    if(rendered.has(v.id)) return;
+    rendered.add(v.id);
+    const sel = state.enabledVoiceIds.has(v.id);
+    const isCustom = state.customVoices.some(c=>c.id===v.id);
+    const div = document.createElement('div');
+    div.className = 'voice-item'+(sel?' selected':'')+(isCustom?' custom-voice':'');
+
+    const hasDesc = !!(v.desc);
+    div.innerHTML =
+      `<div class="vi-top"><span class="vi-emoji">${v.emoji||'🎙'}</span><span class="vi-name">${v.name}</span></div>` +
+      `<div class="vi-tag">${v.tag}</div>` +
+      `<button class="vi-preview-btn" title="샘플 미리듣기"><span class="pb-icon">▶</span> 미리듣기</button>` +
+      (hasDesc ? `<div class="vi-desc-btn">설명 보기 ▾</div><div class="vi-desc">${v.desc}</div>` : '') +
+      `<div class="vi-id">${v.id}</div>` +
+      (isCustom ? `<button class="vi-del" data-id="${v.id}" title="삭제">✕</button>` : '');
+
+    // 미리듣기 버튼
+    const previewBtn = div.querySelector('.vi-preview-btn');
+    previewBtn.addEventListener('click', async e=>{
+      e.stopPropagation();
+      await previewVoice(v.id, previewBtn);
+    });
+
+    // 설명 토글 (버블링 차단해서 선택/해제와 분리)
+    const descBtn = div.querySelector('.vi-desc-btn');
+    if(descBtn){
+      descBtn.addEventListener('click', e=>{
+        e.stopPropagation();
+        const open = div.classList.toggle('desc-open');
+        descBtn.textContent = open ? '설명 접기 ▴' : '설명 보기 ▾';
+      });
+    }
+
+    // 선택/해제 토글
+    div.addEventListener('click', e=>{
+      if(e.target.classList.contains('vi-del')) return;
+      if(e.target.classList.contains('vi-desc-btn')) return;
+      if(e.target.closest('.vi-preview-btn')) return;
+      if(state.enabledVoiceIds.has(v.id)){
+        if(state.enabledVoiceIds.size<=1){toast('최소 1개는 활성화되어야 합니다'); return;}
+        state.enabledVoiceIds.delete(v.id);
+      } else {
+        state.enabledVoiceIds.add(v.id);
+      }
+      buildVoicePool();
+      renderVoiceGrid();
+      refreshVoiceSelects();
+    });
+
+    div.querySelectorAll('.vi-del').forEach(btn=>{
+      btn.addEventListener('click', e=>{
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        state.customVoices = state.customVoices.filter(c=>c.id!==id);
+        state.enabledVoiceIds.delete(id);
+        buildVoicePool();
+        renderVoiceGrid();
+        refreshVoiceSelects();
+        toast('커스텀 보이스 삭제됨');
+      });
+    });
+    grid.appendChild(div);
+  }
+
+  // 그룹 헤더 + 카드 삽입
+  groups.forEach(g=>{
+    const voicesInGroup = g.ids.map(id=>all.find(v=>v.id===id)).filter(Boolean);
+    if(!voicesInGroup.length) return;
+    const label = document.createElement('div');
+    label.className = 'voice-group-label';
+    label.textContent = g.label;
+    grid.appendChild(label);
+    voicesInGroup.forEach(appendVoiceCard);
+  });
+
+  // 그룹에 포함되지 않은 커스텀 보이스 추가
+  const unGrouped = state.customVoices.filter(v=>!rendered.has(v.id));
+  if(unGrouped.length){
+    const label = document.createElement('div');
+    label.className = 'voice-group-label';
+    label.textContent = '나만의 커스텀 보이스';
+    grid.appendChild(label);
+    unGrouped.forEach(appendVoiceCard);
+  }
+}
+
+// ── 보이스 샘플 미리듣기 ────────────────────────────────────────
+// 전역 미리듣기 오디오 (동시에 하나만 재생)
+let _previewAudio = null;
+let _previewActiveBtn = null;
+
+async function previewVoice(voiceId, btn){
+  // 이미 재생 중인 오디오가 있으면 중지
+  if(_previewAudio && !_previewAudio.paused){
+    _previewAudio.pause();
+    if(_previewActiveBtn && _previewActiveBtn !== btn){
+      _previewActiveBtn.classList.remove('playing','loading');
+      _previewActiveBtn.innerHTML = '<span class="pb-icon">▶</span> 미리듣기';
+    }
+    _previewAudio = null;
+    // 같은 버튼 클릭 = 정지만
+    if(_previewActiveBtn === btn){
+      btn.classList.remove('playing','loading');
+      btn.innerHTML = '<span class="pb-icon">▶</span> 미리듣기';
+      _previewActiveBtn = null;
+      return;
+    }
+    _previewActiveBtn = null;
+  }
+
+  // API 키 확인 (입력란 실시간 읽기)
+  const apiKey = ($('minimax-key') && $('minimax-key').value.trim()) || state.keys?.minimaxKey;
+  if(!apiKey){
+    toast('미리듣기하려면 Minimax API 키를 먼저 입력하세요');
+    return;
+  }
+
+  // 샘플 텍스트 (소액 토큰 소모)
+  const SAMPLE = '안녕하세요. 저는 여러분의 이야기를 들려드릴 목소리입니다.';
+
+  btn.classList.add('loading');
+  btn.innerHTML = '<span class="pb-icon">⏳</span> 로딩 중…';
+  _previewActiveBtn = btn;
+
+  try {
+    const res = await fetch('/api/tts', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text:SAMPLE, voice_id:voiceId, speed:1.0, apiKey }),
+    });
+    const data = await res.json();
+    if(!res.ok || !data.audio) throw new Error(data.error || 'No audio');
+
+    const blob = b64ToBlob(data.audio, 'audio/mp3');
+    const url = URL.createObjectURL(blob);
+    _previewAudio = new Audio(url);
+    _previewAudio.play();
+
+    btn.classList.remove('loading');
+    btn.classList.add('playing');
+    btn.innerHTML = '<span class="pb-icon">⏹</span> 정지';
+
+    _previewAudio.onended = ()=>{
+      btn.classList.remove('playing');
+      btn.innerHTML = '<span class="pb-icon">▶</span> 미리듣기';
+      URL.revokeObjectURL(url);
+      _previewAudio = null;
+      _previewActiveBtn = null;
+    };
+    _previewAudio.onerror = ()=>{
+      btn.classList.remove('playing','loading');
+      btn.innerHTML = '<span class="pb-icon">▶</span> 미리듣기';
+      _previewAudio = null;
+      _previewActiveBtn = null;
+    };
+  } catch(err){
+    btn.classList.remove('loading','playing');
+    btn.innerHTML = '<span class="pb-icon">▶</span> 미리듣기';
+    _previewActiveBtn = null;
+    toast('미리듣기 실패: ' + err.message, 3500);
+  }
+}
+
+$('add-voice-btn').addEventListener('click', ()=>{
+  const id   = $('cv-id').value.trim();
+  const name = $('cv-name').value.trim() || id;
+  const tag  = $('cv-tag').value.trim() || '커스텀 보이스';
+  if(!id){ toast('voice_id를 입력해주세요'); return; }
+  if([...BUILTIN_VOICES,...state.customVoices].some(v=>v.id===id)){
+    toast('이미 존재하는 voice_id입니다'); return;
+  }
+  const newVoice = { id, name, tag, emoji:'⭐' };
+  state.customVoices.push(newVoice);
+  state.enabledVoiceIds.add(id);
+  buildVoicePool();
+  renderVoiceGrid();
+  refreshVoiceSelects();
+  $('cv-id').value=''; $('cv-name').value=''; $('cv-tag').value='';
+  toast(`"${name}" 보이스 추가됨`);
+});
+
+function populateVoiceSelect(sel, currentId){
+  const prev = currentId || sel.value;
+  sel.innerHTML = '';
+  state.voices.forEach(v=>{
+    const o = document.createElement('option');
+    o.value = v.id;
+    o.textContent = `${v.emoji||'🎙'} ${v.name} — ${v.tag} (${v.id})`;
+    sel.appendChild(o);
+  });
+  if(prev) sel.value = prev;
+}
+function refreshVoiceSelects(){
+  populateVoiceSelect($('narrator-voice'));
+  if(state.characters.length) renderCharacters();
+}
+
+document.querySelectorAll('.provider-tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.provider-tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.provider-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    const p = btn.dataset.p;
+    state.provider = p;
+    $(`panel-${p}`).classList.add('active');
+    $('analyze-provider-label').textContent = {
+      claude:'선택된 AI: Claude',
+      gemini:'선택된 AI: Gemini',
+      custom:'선택된 AI: 커스텀 엔드포인트',
+    }[p];
+  });
+});
+
+$('save-keys-btn').addEventListener('click',()=>{
+  readKeysFromInputs();
+  const k = state.keys;
+  if(!k.minimaxKey){ toast('Minimax Key는 필수입니다'); return; }
+  $('minimax-key').classList.add('ok');
+  
+  toast('키 저장됨 (세션)');
+  checkAnalyzeReady();
+});
+
+function checkAnalyzeReady(){
+  const hasBook = state.paragraphs.length > 0;
+  const hasMinimax = state.keys.minimaxKey;
+  $('analyze-btn').disabled = !(hasBook && hasMinimax);
+}
+
+const uploadZone = $('upload-zone');
+uploadZone.addEventListener('dragover', e=>{ e.preventDefault(); uploadZone.classList.add('drag'); });
+uploadZone.addEventListener('dragleave', ()=>uploadZone.classList.remove('drag'));
+uploadZone.addEventListener('drop', e=>{ e.preventDefault(); uploadZone.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
+$('file-input').addEventListener('change', e=>handleFile(e.target.files[0]));
+
+async function handleFile(file){
+  if(!file) return;
+  $('file-name').textContent = file.name;
+  $('file-badge-wrap').style.display = 'block';
+  toast('파일 파싱 중…');
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if(ext==='txt') state.bookText = await file.text();
+    else if(ext==='epub') state.bookText = await parseEpub(file);
+    else if(ext==='pdf') state.bookText = await parsePdf(file);
+    else if(ext==='docx') state.bookText = await parseDocx(file);
+    else { toast('지원하지 않는 파일 형식'); return; }
+    state.paragraphs = splitParagraphs(state.bookText);
+    renderParagraphs();
+    checkAnalyzeReady();
+    toast(`${state.paragraphs.length}개 단락 로드 완료`);
+  } catch(e){ toast('파일 파싱 실패: '+e.message); console.error(e); }
+}
+
+async function parseEpub(file){
+  const zip = await JSZip.loadAsync(file);
+  const containerXml = await zip.file('META-INF/container.xml')?.async('string');
+  const rootfile = containerXml.match(/full-path="([^"]+\.opf)"/)?.[1];
+  const opfDir = rootfile.includes('/') ? rootfile.split('/').slice(0,-1).join('/')+'/' : '';
+  const opf = await zip.file(rootfile)?.async('string');
+  const itemRefs = [...(opf?.matchAll(/<itemref\s+idref="([^"]+)"/g)||[])].map(m=>m[1]);
+  const idToHref = {};
+  for(const m of (opf?.matchAll(/<item\s[^>]*id="([^"]+)"[^>]*href="([^"]+)"/g)||[])){ idToHref[m[1]] = m[2]; }
+  let text = '';
+  for(const ref of itemRefs){
+    const href = opfDir + (idToHref[ref]||ref);
+    const html = await zip.file(href)?.async('string') || await zip.file(idToHref[ref])?.async('string') || '';
+    text += cleanHtmlEntities(html.replace(/<[^>]+>/g,' ')) + '\n';
+  }
+  return text;
+}
+
+async function parsePdf(file){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const ab = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+  let text = '';
+  for(let i=1;i<=Math.min(pdf.numPages, 200);i++){
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(it=>it.str).join(' ') + '\n';
+  }
+  return text;
+}
+
+async function parseDocx(file){
+  const zip = await JSZip.loadAsync(file);
+  const xml = await zip.file('word/document.xml')?.async('string');
+  return cleanHtmlEntities(xml.replace(/<w:p[ >]/g,'\n<w:p>').replace(/<[^>]+>/g,''));
+}
+
+// HTML 엔티티 전체 정제 (&#160;   포함)
+function cleanHtmlEntities(str){
+  return str
+    .replace(/&#160;/g,' ')
+    .replace(/&nbsp;/g,' ')
+    .replace(/&#xa0;/gi,' ')
+    .replace(/\u00a0/g,' ')   // non-breaking space
+    .replace(/&lt;/g,'<')
+    .replace(/&gt;/g,'>')
+    .replace(/&amp;/g,'&')
+    .replace(/&quot;/g,'"')
+    .replace(/&#39;/g,"'")
+    .replace(/&#[0-9]+;/g, m => {
+      try { return String.fromCharCode(parseInt(m.slice(2,-1))); } catch{ return ' '; }
+    })
+    .replace(/&[a-zA-Z]+;/g,' ') // 나머지 엔티티 공백으로
+    .replace(/[ \t]+/g,' ');    // 연속 공백 정리
+}
+
+// TTS 전송 전 텍스트 정제 (특수문자, 비가시 문자 제거)
+function cleanForTTS(str){
+  return str
+    .replace(/\u00a0/g,' ')         // non-breaking space
+    .replace(/[\u200b-\u200f]/g,'') // zero-width chars
+    .replace(/[\u2028\u2029]/g,' ') // line/paragraph separator
+    .replace(/\s+/g,' ')            // 연속 공백 → 단일
+    .trim();
+}
+
+function splitParagraphs(text){
+  // ── 1단계: 전처리 ──────────────────────────────────────────
+  // HTML 엔티티 및 비가시 문자 제거
+  text = cleanHtmlEntities(text);
+  // 줄바꿈으로 나눠 빈 줄 제거
+  const rawLines = text.split(/\n+/).map(l=>l.trim()).filter(l=>l.length>2);
+
+  // ── 2단계: 각 줄을 대화/나레이션 세그먼트로 분해 ──────────
+  // 한 줄 안에 "대화" "나레이션" "대화"가 섞여 있을 수 있으므로
+  // 따옴표 쌍을 기준으로 쪼갬
+  const OPEN_Q  = /["\u201c\u300c\u300e\u3010]/;
+  const CLOSE_Q = /["\u201d\u300d\u300f\u3011]/;
+
+  const segments = []; // { type:'dialogue'|'narration', text }
+
+  for(const line of rawLines){
+    // 따옴표가 없으면 전체가 나레이션
+    if(!OPEN_Q.test(line) && !CLOSE_Q.test(line)){
+      segments.push({ type:'narration', text:line });
+      continue;
+    }
+
+    // 따옴표 기준으로 분해
+    // 예: 나레이션 "대화" 나레이션 "대화" 나레이션
+    let rest = line;
+    while(rest.length > 0){
+      const oIdx = rest.search(OPEN_Q);
+      if(oIdx === -1){
+        // 남은 부분은 나레이션
+        if(rest.trim()) segments.push({ type:'narration', text:rest.trim() });
+        break;
+      }
+      // 따옴표 전 나레이션
+      if(oIdx > 0){
+        const before = rest.slice(0, oIdx).trim();
+        if(before) segments.push({ type:'narration', text:before });
+      }
+      // 따옴표 안 대화
+      const afterOpen = rest.slice(oIdx);
+      const cIdx = afterOpen.slice(1).search(CLOSE_Q);
+      if(cIdx === -1){
+        // 닫는 따옴표 없음 → 나머지 전체를 대화로
+        segments.push({ type:'dialogue', text:afterOpen.trim() });
+        rest = '';
+      } else {
+        const dialogue = afterOpen.slice(0, cIdx + 2).trim();
+        segments.push({ type:'dialogue', text:dialogue });
+        rest = afterOpen.slice(cIdx + 2).trim();
+      }
+    }
+  }
+
+  // ── 3단계: 연속 나레이션은 묶고 대화는 단독 단락 ──────────
+  const TARGET_MIN = 120;
+  const TARGET_MAX = 450;
+  const paragraphs = [];
+  let narBuffer = '';
+
+  function flushNarration(){
+    if(narBuffer.trim()) paragraphs.push(narBuffer.trim());
+    narBuffer = '';
+  }
+
+  for(const seg of segments){
+    if(seg.type === 'dialogue'){
+      // 나레이션 버퍼 먼저 비우기
+      flushNarration();
+      // 대화는 단독 단락 (뒤에 나레이션이 이어지면 같이 붙임 — 아래에서 처리)
+      paragraphs.push(seg.text);
+    } else {
+      // 나레이션: 버퍼에 쌓다가 TARGET_MAX 초과 또는 문장 끝이면 확정
+      if(narBuffer && narBuffer.length + seg.text.length > TARGET_MAX){
+        flushNarration();
+      }
+      narBuffer = narBuffer ? narBuffer + ' ' + seg.text : seg.text;
+      if(narBuffer.length >= TARGET_MIN && /[.!?\u2026]$/.test(narBuffer)){
+        flushNarration();
+      }
+    }
+  }
+  flushNarration();
+
+  // ── 4단계: 대화문 직후 화자 서술 나레이션은 앞 단락에 합치기 ──
+  // 패턴: "대화." [나레이션에 이름+동사] → 합쳐서 화자 감지 가능하게
+  const OPEN_QS  = /^["“「『【＂]/;
+  const CLOSE_QS = /["”」』】＂]/;
+  // 화자 서술 패턴: 이름 + 조사 + 동작동사 (목소리냈다, 말했다 등)
+  const SPEAKER_NAR_RE = /[가-힣A-Za-z]{1,8}(?:[이가은는]|가)\s*(?:말했다|말하며|말하자|물었다|물으며|소리쳤다|소리치며|외쳤다|속삭였다|속삭이며|대답했다|답했다|웃었다|중얼거렸다|투덜댔다|목소리를\s*냈다|목소리\s*냈다|낮게\s*말했다|나직하게\s*말했다|무겁게\s*말했다|차갑게\s*말했다|조용히\s*말했다|천천히\s*말했다)/;
+
+  const merged = [];
+  for(let i=0;i<paragraphs.length;i++){
+    const p = paragraphs[i];
+    const next = paragraphs[i+1];
+    const isDialP = OPEN_QS.test(p) || CLOSE_QS.test(p);
+
+    if(isDialP && next){
+      const nextIsNar = !OPEN_QS.test(next) && !CLOSE_QS.test(next);
+      // 다음이 나레이션이고 화자 서술 포함, 또는 짧고 접속사로 시작
+      if(nextIsNar && (
+        SPEAKER_NAR_RE.test(next) ||
+        (next.length < 80 && /^(라고|라며|하고|하며|하자|이라고|이라며|하면서|하더니|하는데|했다|했습니다)/.test(next))
+      )){
+        merged.push(p + ' ' + next);
+        i++;
+        continue;
+      }
+    }
+    merged.push(p);
+  }
+
+  // ── 5단계: 연속 대화문 처리 (화자 교환 추적용 메타 제거 없이 유지) ──
+  return merged.filter(p=>p.trim().length>2);
+}
+
+function readKeysFromInputs(){
+  state.keys = {
+    minimaxKey:  $('minimax-key').value.trim(),
+    claudeKey:   $('claude-key').value.trim(),
+    claudeModel: $('claude-model').value.trim() || 'claude-haiku-4-5-20251001',
+    geminiKey:   $('gemini-key').value.trim(),
+    geminiModel: $('gemini-model').value.trim() || 'gemini-2.5-pro',
+    customKey:   $('custom-key').value.trim(),
+    customUrl:   $('custom-url').value.trim(),
+    customModel: $('custom-model').value.trim(),
+  };
+}
+
+$('analyze-btn').addEventListener('click', analyzeCharacters);
+
+async function analyzeCharacters(){
+  // 분석 버튼 클릭 시점에 항상 입력값을 자동으로 읽어옴 (저장 버튼 생략 가능)
+  readKeysFromInputs();
+
+  const k = state.keys;
+  let hasAnalysisKey = false;
+  if(state.provider==='claude' && k.claudeKey) hasAnalysisKey=true;
+  if(state.provider==='gemini' && k.geminiKey) hasAnalysisKey=true;
+  if(state.provider==='custom' && k.customKey && k.customUrl && k.customModel) hasAnalysisKey=true;
+
+  if(!hasAnalysisKey){
+    toast('API 키 없음 — 수동 설정 모드로 진행합니다');
+    runSimpleCharDetectFallback();
+    return;
+  }
+
+  if(!k.minimaxKey){
+    toast('Minimax Key를 먼저 입력해주세요', true);
+    return;
+  }
+
+  $('analyze-btn').disabled=true;
+  const prog=$('analyze-progress'); prog.style.display='block';
+  setProgress(10,'AI에 요청 전송 중…');
+
+  try {
+    const body = {
+      text: cleanForTTS(state.bookText),
+      voices: state.voices.map(v=>({ id:v.id, name:v.name, tag:v.tag })),
+      provider: state.provider,
+      claudeApiKey: k.claudeKey,
+      claudeModel: k.claudeModel,
+      geminiApiKey: k.geminiKey,
+      geminiModel: k.geminiModel,
+      customApiKey: k.customKey,
+      customBaseUrl: k.customUrl,
+      customModel: k.customModel,
+    };
+    setProgress(40,'캐릭터와 대화 패턴 감지 중…');
+    const r = await fetch('/api/analyze', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    setProgress(80,'결과 처리 중…');
+    const data = await r.json();
+    
+    if(data.parseError || !data.characters) {
+      toast('AI 분석 결과를 파싱하지 못했습니다. 수동으로 설정합니다.', true);
+      runSimpleCharDetectFallback();
+    } else {
+      // ── 후처리: 잘못된 캐릭터명 필터링 ──
+      // 동사/부사/조사구/짧은 서술어가 캐릭터로 잡혔을 때 제거
+      const INVALID_CHAR_RE = /(?:에게|에서|하며|하자|하고|이며|으며|라며|라고|았다|었다|했다|한다|라는|이란|슬쩍|갑자기|그때|그러나|하지만|그리고|이때|하여|으로|이라|에서|부터|까지|처럼|만큼|보다|위해|으로서|으로써)$/;
+      const VERB_START_RE = /^(?:말|소리|속삭|외|물|대답|웃|중얼|투덜|한숨|고개)/;
+      const MIN_NAME_LEN = 1; // 1글자 이상 (형, 엄마 등 허용)
+      const MAX_NAME_LEN = 6; // 7글자 이상은 거의 서술어
+
+      const rawChars = data.characters || [];
+      const filtered = rawChars.filter(c => {
+        if(c.name === 'narrator') return true;
+        const n = c.name;
+        if(n.length < MIN_NAME_LEN || n.length > MAX_NAME_LEN) return false;
+        if(INVALID_CHAR_RE.test(n)) return false;
+        if(VERB_START_RE.test(n)) return false;
+        // 숫자만 있거나 특수문자 포함
+        if(/^[0-9\s\W]+$/.test(n)) return false;
+        return true;
+      });
+
+      // narrator가 없으면 앞에 추가
+      if(!filtered.find(c=>c.name==='narrator')){
+        const narVoice = $('narrator-voice')?.value || (state.voices[0]?.id||'');
+        filtered.unshift({
+          name:'narrator', description:'내레이션',
+          voice_id: narVoice,
+          voice_name: state.voices.find(v=>v.id===narVoice)?.name||'내레이터',
+          color:'#6c63ff'
+        });
+      }
+
+      state.characters = filtered;
+      state.dialoguePatterns = data.dialogue_patterns || [];
+      assignCharactersToParagraphs();
+      renderCharacters();
+      $('char-section').style.display='block';
+      const invalid = rawChars.length - filtered.length;
+      toast(`${filtered.length}명 캐릭터 감지${invalid>0?' ('+invalid+'개 잘못된 캐릭터 제거)':''}`);
+    }
+  } catch(e){ 
+    toast('분석 오류: '+e.message + ' — 수동 설정으로 전환'); 
+    runSimpleCharDetectFallback();
+  }
+  finally{
+    setProgress(100,'완료');
+    setTimeout(()=>{ prog.style.display='none'; $('analyze-btn').disabled=false; }, 800);
+  }
+}
+
+// Fallback logic implemented from previous stable version
+function runSimpleCharDetectFallback() {
+  const namePattern = /([가-힣A-Za-z]{2,10})(?:\s*[이가은는]?\s*(?:말했다|소리쳤다|속삭였다|외쳤다|물었다|대답했다|answered|said|whispered|shouted|replied|asked))/g;
+  const foundNames = new Set(['narrator']);
+  let m; 
+  while ((m = namePattern.exec(state.bookText)) !== null) { 
+    if (m[1].length >= 2) foundNames.add(m[1]); 
+    if (foundNames.size >= 7) break; 
+  }
+  
+  state.characters = []; 
+  let ci = 0;
+  const colors = ['#6c63ff', '#4ade80', '#ff6584', '#fbbf24', '#a78bfa', '#2dd4bf', '#f472b6', '#38bdf8'];
+  
+  for (const name of foundNames) {
+    const isNarrator = name === 'narrator';
+    state.characters.push({ 
+      name, 
+      description: isNarrator ? '내레이션 / 묘사 텍스트' : '발견된 캐릭터', 
+      voice_id: isNarrator ? $('narrator-voice').value : state.voices[ci % state.voices.length].id, 
+      voice_name: isNarrator ? (state.voices.find(v => v.id === $('narrator-voice').value)?.name || '내레이터') : state.voices[ci % state.voices.length].name, 
+      color: colors[ci % colors.length]
+    });
+    if (!isNarrator) ci++;
+  }
+  assignCharactersToParagraphs();
+  renderCharacters();
+  $('char-section').style.display='block';
+}
+
+function setProgress(pct,msg){
+  $('progress-fill').style.width = pct+'%';
+  $('progress-text').textContent = msg;
+}
+
+function assignCharactersToParagraphs(){
+  if(!state.characters.length) return;
+
+  const OPEN_Q  = /^["\u201c\u300c\u300e\u3010]/;
+  const CLOSE_Q = /["\u201d\u300d\u300f\u3011]/;
+
+  // 대화동사 목록 (확장)
+  const DIALOGUE_VERBS =
+    '말했다|말하며|말하자|말했습니다|물었다|물으며|물었습니다|' +
+    '소리쳤다|소리치며|외쳤다|외치며|속삭였다|속삭이며|' +
+    '대답했다|대답하며|답했다|답하며|웃었다|웃으며|' +
+    '중얼거렸다|중얼거리며|투덜댔다|투덜거리며|' +
+    '한숨을 쉬며|한숨쉬며|눈살을 찌푸리며|' +
+    '고개를 저으며|고개를 끄덕이며|' +
+    'said|whispered|shouted|replied|asked|answered|muttered|laughed';
+
+  const narrator = state.characters.find(c=>c.name==='narrator') || state.characters[0];
+  // narrator 제외, 이름 긴 순으로 정렬
+  const namedChars = state.characters
+    .filter(c => c.name !== 'narrator' && c.name.length >= 2)
+    .sort((a,b) => b.name.length - a.name.length);
+
+  function detectSpeaker(text){
+    for(const c of namedChars){
+      const n = c.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      // 1. 이름 + 대화동사 (가장 확실)
+      const speakerRE = new RegExp(n + '[이가은는]?\\s*(?:' + DIALOGUE_VERBS + ')');
+      if(speakerRE.test(text)) return c;
+      // 2. 닫는 따옴표 뒤에 이름
+      const afterQ = new RegExp('["\u201d\u300d\u300f\u3011][,.]?\\s*' + n + '(?:[이가은는]|\\s|$)');
+      if(afterQ.test(text)) return c;
+      // 3. 이름: 대화 스타일
+      const beforeQ = new RegExp('^' + n + '\\s*[:\\-]\\s*["\u201c\u300c]');
+      if(beforeQ.test(text)) return c;
+      // 4. 이름 + 주격조사 + 동사로 끝나는 문장
+      //    ("현무당주가 무참한 목소리를 냈다" 같은 서술 행동 포함)
+      const subjectRE = new RegExp(n + '[이가]\\s*[가-힣A-Za-z\\s]{2,30}[았었했겠]다');
+      if(subjectRE.test(text)) return c;
+      // 5. 은/는 주제격으로 행동하는 경우
+      const topicRE = new RegExp(n + '[은는]\\s*[가-힣A-Za-z\\s]{2,30}[았었했겠]다');
+      if(topicRE.test(text)) return c;
+    }
+    return null;
+  }
+
+  // 단락이 대화문인지 판단 (따옴표 포함 여부)
+  function isDialoguePara(text){
+    return OPEN_Q.test(text) || CLOSE_Q.test(text) ||
+           /^[""「『【]/.test(text);
+  }
+
+  let lastSpeaker = null;
+  let lastSpeakerCount = 0;
+
+  // 1차 패스: 기본 화자 배정
+  const assigned = state.paragraphs.map(text=>{
+    if(typeof text === 'object') return text;
+
+    const isDial = isDialoguePara(text);
+    let char = narrator;
+
+    if(isDial){
+      const detected = detectSpeaker(text);
+      if(detected){
+        char = detected;
+        lastSpeaker = detected;
+        lastSpeakerCount = 0;
+      } else if(lastSpeaker && lastSpeakerCount < 3){
+        char = lastSpeaker;
+        lastSpeakerCount++;
+      } else {
+        char = narrator;
+        lastSpeaker = null;
+        lastSpeakerCount = 0;
+      }
+    } else {
+      // 나레이션 — 화자 이름이 나레이션 안에 있으면 그 화자
+      const detected = detectSpeaker(text);
+      if(detected){
+        char = detected;
+        lastSpeaker = detected;
+        lastSpeakerCount = 0;
+      } else {
+        char = narrator;
+        lastSpeakerCount = 0;
+      }
+    }
+
+    return { text, char };
+  });
+
+  // 2차 패스 (역방향 보정):
+  // 대화 단락의 화자가 narrator인데, 바로 다음 나레이션에서 화자가 감지되면
+  // 그 화자를 대화 단락에 소급 적용 (최대 3개 단락까지 거슬러 올라감)
+  for(let i = 1; i < assigned.length; i++){
+    const cur = assigned[i];
+    if(typeof cur !== 'object') continue;
+    const curIsDial = isDialoguePara(cur.text);
+
+    // 현재가 나레이션이고 화자가 narrator 아닌 경우
+    if(!curIsDial && cur.char && cur.char.name !== 'narrator'){
+      const speaker = cur.char;
+      // 바로 앞 단락들 중 화자가 narrator인 대화문들 수정
+      let lookback = 0;
+      for(let j = i-1; j >= 0 && lookback < 3; j--, lookback++){
+        const prev = assigned[j];
+        if(typeof prev !== 'object') break;
+        if(!isDialoguePara(prev.text)) break; // 대화문이 아니면 중단
+        if(prev.char && prev.char.name === 'narrator'){
+          assigned[j] = { text: prev.text, char: speaker };
+        } else {
+          break; // 이미 다른 화자가 배정된 대화면 중단
+        }
+      }
+    }
+  }
+
+  // 3차 패스 (교대 대화 보정):
+  // 화자가 감지된 대화들 사이에 narrator로 된 대화가 끼어있으면
+  // 앞뒤 화자 중 직전과 다른 화자를 배정 (2인 대화 교환)
+  const namedSet = new Set(namedChars.map(c=>c.name));
+  for(let i = 1; i < assigned.length - 1; i++){
+    const cur = assigned[i];
+    if(typeof cur !== 'object') continue;
+    if(!isDialoguePara(cur.text)) continue;
+    if(cur.char && cur.char.name !== 'narrator') continue; // 이미 화자 있음
+
+    const prev = assigned[i-1];
+    const next = assigned[i+1];
+    const prevChar = (typeof prev==='object' && isDialoguePara(prev.text)) ? prev.char : null;
+    const nextChar = (typeof next==='object') ? next.char : null;
+
+    // 앞뒤 중 하나라도 named 화자이면
+    if(prevChar && namedSet.has(prevChar.name) && nextChar && namedSet.has(nextChar.name)){
+      // 앞과 다른 화자를 선택 (교대 원칙)
+      if(prevChar.name !== nextChar.name){
+        assigned[i] = { text: cur.text, char: nextChar };
+      } else if(namedChars.length >= 2){
+        // 앞뒤가 같은 화자면 다른 named 화자 배정
+        const other = namedChars.find(c=>c.name!==prevChar.name);
+        if(other) assigned[i] = { text: cur.text, char: other };
+      }
+    }
+  }
+
+  state.paragraphs = assigned;
+  renderParagraphs();
+}
+
+let activeCharIdx = -1;
+function renderCharacters(){
+  const list=$('char-list'); list.innerHTML='';
+  state.characters.forEach((c,i)=>{
+    const v = state.voices.find(v=>v.id===c.voice_id);
+    const badge = document.createElement('div');
+    badge.className='char-badge'+(activeCharIdx===i?' active':'');
+    badge.style.background = c.color+'22';
+    badge.style.borderColor = c.color;
+    badge.innerHTML = `<span class="cb-dot" style="background:${c.color}"></span>${c.name}<span class="cb-voice">${v?.emoji||'🎙'} ${v?.name||c.voice_name}</span>`;
+    badge.addEventListener('click',()=>{
+      activeCharIdx = activeCharIdx===i ? -1 : i;
+      renderCharacters();
+      toggleVoicePicker(i);
+    });
+    list.appendChild(badge);
+  });
+}
+
+function toggleVoicePicker(idx){
+  const picker=$('voice-picker');
+  if(activeCharIdx===-1){ picker.classList.remove('open'); return; }
+  const c = state.characters[idx];
+  $('picker-label').textContent = `"${c.name}" 목소리 변경`;
+  const sel=$('picker-select');
+  populateVoiceSelect(sel, c.voice_id);
+  sel.onchange = ()=>{
+    state.characters[idx].voice_id = sel.value;
+    state.characters[idx].voice_name = state.voices.find(v=>v.id===sel.value)?.name||sel.value;
+    renderCharacters();
+  };
+  picker.classList.add('open');
+}
+
+function renderParagraphs(){
+  const container=$('paragraphs');
+  container.innerHTML='';
+  const paras = state.paragraphs;
+  if(!paras.length){ container.innerHTML='<p style="color:var(--text3);text-align:center;padding:32px 0">단락 없음</p>'; return; }
+
+  const OPEN_Q = /^["\u201c\u300c\u300e\u3010]/;
+
+  paras.forEach((p,i)=>{
+    const text = typeof p==='object' ? p.text : p;
+    const char = typeof p==='object' ? p.char : null;
+    const isNarrator = !char || char.name === 'narrator';
+    const isDialogue = OPEN_Q.test(text);
+
+    const div = document.createElement('div');
+    div.className = 'para' + (isDialogue && !isNarrator ? ' is-dialogue' : '');
+    div.dataset.idx = i;
+    if(char) div.style.setProperty('--char-color', char.color);
+
+    div.innerHTML =
+      `<button class="play-para" title="이 단락 재생">▶</button>` +
+      `<div style="flex:1;min-width:0">` +
+        (isDialogue && !isNarrator && char
+          ? `<div class="char-label">${escHtml(char.name)}</div>`
+          : '') +
+        `<span class="para-text">${escHtml(text)}</span>` +
+      `</div>`;
+
+    div.addEventListener('click', ()=>playFrom(i));
+    div.querySelector('.play-para').addEventListener('click', e=>{ e.stopPropagation(); playFrom(i); });
+    container.appendChild(div);
+  });
+  $('para-counter').textContent = `— / ${paras.length}`;
+}
+
+function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function playFrom(idx){
+  state.currentIdx = idx;
+  $('audio-bar').style.display='block'; // CSS audio-bar default none → show
+  prefetchAhead(idx);
+  await playIdx(idx);
+}
+
+async function playIdx(idx){
+  if(idx<0||idx>=state.paragraphs.length) return;
+  state.currentIdx=idx;
+  highlightPara(idx);
+  scrollToPara(idx);
+  updateCounter(idx);
+
+  const p = state.paragraphs[idx];
+  const text = typeof p==='object'?p.text:p;
+  const char = typeof p==='object'?p.char:null;
+  const isNarrator = !char || char.name === 'narrator';
+  const voiceId = char?.voice_id || $('narrator-voice').value;
+  const charName = char?.name||'내레이터';
+
+  $('now-char').textContent=charName;
+  $('now-char').style.color=char?.color||'var(--accent)';
+  $('now-text').textContent=text;
+  // now-char-dot 색상 + 이모지
+  const charColor = char?.color || '#6c63ff';
+  const nowDot = $('now-char-dot');
+  if(nowDot){
+    nowDot.style.background = charColor + '33';
+    nowDot.style.border = '2px solid ' + charColor + '66';
+    // 보이스의 이모지 찾기
+    const voice = state.voices.find(v=>v.id===(char?.voice_id));
+    nowDot.textContent = voice?.emoji || (isNarrator ? '📖' : '🎙');
+  }
+  // 플레이어 프로그레스 바 색상
+  const pfill = $('player-progress-fill');
+  if(pfill) pfill.style.background = charColor;
+  document.documentElement.style.setProperty('--now-char-color', charColor);
+  // 프로그레스 비율
+  updateProgress();
+
+  state.playing=true;
+  updatePlayBtns();
+  prefetchAhead(idx);
+
+  try {
+    const audioB64 = await getAudio(text, voiceId);
+    const blob = b64ToBlob(audioB64,'audio/mp3');
+    const url = URL.createObjectURL(blob);
+    if(state.audio){ state.audio.pause(); URL.revokeObjectURL(state.audio.src); }
+    state.audio = new Audio(url);
+    state.audio.playbackRate = state.speed;
+    state.audio.play();
+    state.audio.onended = ()=>{
+      state.playing=false;
+      updatePlayBtns();
+      clearHighlight(idx);
+      if(state.autoPlay && idx+1 < state.paragraphs.length) playIdx(idx+1);
+    };
+  } catch(e){ toast('TTS 오류: '+e.message); state.playing=false; updatePlayBtns(); }
+}
+
+async function getAudio(text, voiceId){
+  const key = voiceId+'::'+text.slice(0,80);
+  if(state.prefetchCache[key]) return state.prefetchCache[key];
+  return fetchAudio(text, voiceId);
+}
+
+async function fetchAudio(text, voiceId){
+  const cleanedText = cleanForTTS(text);
+  const r = await fetch('/api/tts',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      text: cleanedText, voice_id:voiceId, speed:state.speed,
+      apiKey:state.keys.minimaxKey,
+    }),
+  });
+  const data = await r.json();
+  if(!r.ok||!data.audio) throw new Error(data.error||'No audio');
+  return data.audio;
+}
+
+function prefetchAhead(idx){
+  for(let i=idx+1; i<=idx+3 && i<state.paragraphs.length; i++){
+    const p=state.paragraphs[i];
+    const text=typeof p==='object'?p.text:p;
+    const voiceId=(typeof p==='object'?p.char?.voice_id:null)||$('narrator-voice').value;
+    const key=voiceId+'::'+text.slice(0,80);
+    if(!state.prefetchCache[key]&&!state.fetchingSet.has(key)){
+      state.fetchingSet.add(key);
+      fetchAudio(text,voiceId).then(a=>{ state.prefetchCache[key]=a; state.fetchingSet.delete(key); }).catch(()=>state.fetchingSet.delete(key));
+    }
+  }
+}
+
+function b64ToBlob(b64,type){
+  const bin=atob(b64); const arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type});
+}
+
+function highlightPara(idx){
+  document.querySelectorAll('.para').forEach(el=>{
+    const elIdx = +el.dataset.idx;
+    el.classList.remove('playing');
+    el.classList.toggle('played', elIdx < idx);
+    if(elIdx === idx) el.classList.add('playing');
+  });
+}
+function clearHighlight(idx){
+  document.querySelectorAll('.para').forEach(el=>{
+    if(+el.dataset.idx===idx){
+      el.classList.remove('playing');
+      el.classList.add('played');
+    }
+  });
+}
+function scrollToPara(idx){
+  const el=document.querySelector(`.para[data-idx="${idx}"]`);
+  if(el) el.scrollIntoView({block:'center',behavior:'smooth'});
+}
+function updateCounter(idx){
+  $('para-counter').textContent=`${idx+1} / ${state.paragraphs.length}`;
+}
+function updateProgress(){
+  const pfill = $('player-progress-fill');
+  if(!pfill || !state.paragraphs.length) return;
+  const pct = state.paragraphs.length > 1
+    ? (state.currentIdx / (state.paragraphs.length-1)) * 100 : 0;
+  pfill.style.width = pct.toFixed(1)+'%';
+}
+function updatePlayBtns(){
+  const icon=state.playing?'⏸':'▶';
+  if($('play-btn')) $('play-btn').textContent=icon;
+  if($('ab-play-btn')) $('ab-play-btn').textContent=icon;
+}
+
+function togglePlay(){
+  if(state.playing){
+    state.audio?.pause(); state.playing=false; updatePlayBtns();
+  } else if(state.audio?.paused){
+    state.audio.play(); state.playing=true; updatePlayBtns();
+  } else if(state.currentIdx>=0){
+    playFrom(state.currentIdx);
+  } else if(state.paragraphs.length){
+    playFrom(0);
+  }
+}
+
+function skipPara(dir){
+  const next = state.currentIdx + dir;
+  if(next>=0 && next<state.paragraphs.length) playFrom(next);
+}
+
+function toggleAuto(){
+  state.autoPlay=!state.autoPlay;
+  const btn=$('auto-btn');
+  if(btn){ btn.textContent='🔁 자동'; btn.classList.toggle('on',state.autoPlay); }
+}
+
+// play-btn (단락 목록 위 버튼, 있는 경우에만)
+if($('play-btn')) $('play-btn').addEventListener('click', togglePlay);
+
+const SPEEDS=[0.75,1.0,1.25,1.5,1.75,2.0];
+let speedIdx=1;
+function cycleSpeed(){
+  speedIdx=(speedIdx+1)%SPEEDS.length;
+  state.speed=SPEEDS[speedIdx];
+  if(state.audio) state.audio.playbackRate=state.speed;
+  const label=state.speed.toFixed(2).replace(/\.?0+$/,'')+'×';
+  if($('speed-btn')) $('speed-btn').textContent=label;
+  if($('ab-speed')) $('ab-speed').textContent=label;
+}
+if($('speed-btn')) $('speed-btn').addEventListener('click', cycleSpeed);
+
+$('auto-btn').addEventListener('click', toggleAuto);
+
+const FS=['sm','md','lg'];
+let fsIdx=1;
+$('font-btn').addEventListener('click',()=>{
+  fsIdx=(fsIdx+1)%FS.length;
+  state.fontSize=FS[fsIdx];
+  const paras=$('paragraphs');
+  paras.classList.remove('fs-sm','fs-md','fs-lg');
+  paras.classList.add('fs-'+state.fontSize);
+});
+
+(function init(){
+  buildVoicePool();
+  renderVoiceGrid();
+  populateVoiceSelect($('narrator-voice'));
+  state.autoPlay=true;
+  const autoBtn=$('auto-btn');
+  if(autoBtn){ autoBtn.classList.add('on'); autoBtn.textContent='🔁 자동'; }
+})();
+</script>
+</body>
+</html>
