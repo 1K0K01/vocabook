@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields: text, voice_id, apiKey, groupId' });
   }
 
-  const url = `https://api.minimaxi.chat/v1/t2a_v2?GroupId=${groupId}`;
+  const url = `https://api.minimax.io/v1/t2a_v2?GroupId=${groupId}`;
 
   try {
     const response = await fetch(url, {
