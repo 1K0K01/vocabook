@@ -569,7 +569,34 @@ async function parseDocx(file){
 }
 
 function splitParagraphs(text){
-  return text.split(/\n+/).map(l=>l.trim()).filter(l=>l.length>10);
+  // 줄바꿈으로 나눈 뒤 빈 줄 제거
+  const lines = text.split(/\n+/).map(l=>l.trim()).filter(l=>l.length>5);
+
+  // 짧은 줄을 묶어 150~500자 단위 단락으로 합치기
+  // (Minimax TTS는 1회 최대 5000자이지만 자연스러운 재생 단위는 ~500자)
+  const TARGET_MIN = 150;
+  const TARGET_MAX = 500;
+
+  const paragraphs = [];
+  let buffer = '';
+
+  for(const line of lines){
+    // 따옴표로 시작하는 대화문은 항상 새 단락
+    const isDialogueStart = /^["\u201c\u201d\u300c\u300e\u3010]/.test(line);
+    if(buffer && (isDialogueStart || buffer.length + line.length > TARGET_MAX)){
+      paragraphs.push(buffer.trim());
+      buffer = line;
+    } else {
+      buffer = buffer ? buffer + ' ' + line : line;
+    }
+    // 문장 끝이면서 TARGET_MIN 이상이면 단락 확정
+    if(buffer.length >= TARGET_MIN && /[.!?.!\u2026"\u300d\u300f\u3011]$/.test(buffer)){
+      paragraphs.push(buffer.trim());
+      buffer = '';
+    }
+  }
+  if(buffer.trim()) paragraphs.push(buffer.trim());
+  return paragraphs.filter(p=>p.length>5);
 }
 
 function readKeysFromInputs(){
@@ -692,22 +719,61 @@ function setProgress(pct,msg){
 
 function assignCharactersToParagraphs(){
   if(!state.characters.length) return;
-  const patterns = state.dialoguePatterns.length
-    ? state.dialoguePatterns.map(p=>p.replace(/…/g,'[^"»」]*'))
-    : ['"[^"]*"','「[^」]*」','"[^"]*"'];
+
+  // 대화문 감지 패턴 (책에서 추출한 패턴 우선, 없으면 기본값)
+  const quotePatterns = state.dialoguePatterns.length
+    ? state.dialoguePatterns.map(p=>p.replace(/\u2026/g,'[^"]*'))
+    : ['"[^"]*"','\u300c[^\u300d]*\u300d','[^\u201d]*\u201d','[^\u201c]*'];
 
   const narrator = state.characters.find(c=>c.name==='narrator') || state.characters[0];
+  // narrator 제외, 이름 긴 순으로 정렬 (긴 이름 먼저 매칭해 오탐 방지)
+  const namedChars = state.characters
+    .filter(c => c.name !== 'narrator' && c.name.length >= 2)
+    .sort((a,b) => b.name.length - a.name.length);
+
+  function detectSpeaker(text){
+    for(const c of namedChars){
+      const n = c.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); // regex escape
+      // "이름 + 대화동사" 패턴
+      const speakerRE = new RegExp(n + '[이가은는]?\\s*(말했다|소리쳤다|속삭였다|외쳤다|물었다|대답했다|웃었다|중얼거렸다|said|whispered|shouted|replied|asked)');
+      if(speakerRE.test(text)) return c;
+      // 닫는 따옴표 뒤에 이름이 오는 경우
+      const afterQuoteRE = new RegExp('["\u201d\u300d\u300f\u3011]\\s*' + n + '(?:[이가]|\\s|$)');
+      if(afterQuoteRE.test(text)) return c;
+    }
+    return null;
+  }
+
+  let lastSpeaker = null;
+  let lastSpeakerCount = 0;
 
   state.paragraphs = state.paragraphs.map(text=>{
     if(typeof text === 'object') return text;
-    const isDialogue = patterns.some(p=>new RegExp(p).test(text));
+
+    const isDialogue = quotePatterns.some(p=>{ try{ return new RegExp(p).test(text); }catch{ return false; } });
     let char = narrator;
+
     if(isDialogue){
-      for(const c of state.characters){
-        if(c.name==='narrator') continue;
-        if(text.includes(c.name)){ char=c; break; }
+      const detected = detectSpeaker(text);
+      if(detected){
+        char = detected;
+        lastSpeaker = detected;
+        lastSpeakerCount = 0;
+      } else if(lastSpeaker && lastSpeakerCount < 2){
+        // 화자 불명 대화: 직전 화자 최대 2회 유지
+        char = lastSpeaker;
+        lastSpeakerCount++;
+      } else {
+        char = namedChars.length > 0 ? namedChars[0] : narrator;
+        lastSpeaker = null;
+        lastSpeakerCount = 0;
       }
+    } else {
+      char = narrator;
+      lastSpeaker = null;
+      lastSpeakerCount = 0;
     }
+
     return { text, char };
   });
   renderParagraphs();
