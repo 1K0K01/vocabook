@@ -189,10 +189,7 @@ header p{color:var(--text2);font-size:.9rem}
       <label>Minimax Key</label>
       <input class="key-input" id="minimax-key" type="password" placeholder="eyJ... 또는 sk-..."/>
     </div>
-    <div class="key-row">
-      <label>Group ID</label>
-      <input class="key-input" id="minimax-gid" type="text" placeholder="1234567890"/>
-    </div>
+
   </div>
 
   <hr style="border-color:var(--surface3);margin-bottom:14px"/>
@@ -213,7 +210,7 @@ header p{color:var(--text2);font-size:.9rem}
     </div>
     <div class="key-row">
       <label>Model</label>
-      <input class="key-input" id="claude-model" type="text" value="claude-3-haiku-20240307"/>
+      <input class="key-input" id="claude-model" type="text" value="claude-haiku-4-5-20251001"/>
     </div>
   </div>
 
@@ -225,7 +222,7 @@ header p{color:var(--text2);font-size:.9rem}
     </div>
     <div class="key-row">
       <label>Model</label>
-      <input class="key-input" id="gemini-model" type="text" value="gemini-1.5-pro"/>
+      <input class="key-input" id="gemini-model" type="text" value="gemini-2.5-pro"/>
     </div>
   </div>
 
@@ -350,6 +347,7 @@ header p{color:var(--text2);font-size:.9rem}
 
 <div class="toast" id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <script>
@@ -493,27 +491,18 @@ document.querySelectorAll('.provider-tab').forEach(btn=>{
 });
 
 $('save-keys-btn').addEventListener('click',()=>{
-  state.keys = {
-    minimaxKey: $('minimax-key').value.trim(),
-    minimaxGid: $('minimax-gid').value.trim(),
-    claudeKey:  $('claude-key').value.trim(),
-    claudeModel:$('claude-model').value.trim() || 'claude-3-haiku-20240307',
-    geminiKey:  $('gemini-key').value.trim(),
-    geminiModel:$('gemini-model').value.trim() || 'gemini-1.5-pro',
-    customKey:  $('custom-key').value.trim(),
-    customUrl:  $('custom-url').value.trim(),
-    customModel:$('custom-model').value.trim(),
-  };
-  if(!state.keys.minimaxKey||!state.keys.minimaxGid){ toast('Minimax Key와 Group ID는 필수입니다'); return; }
+  readKeysFromInputs();
+  const k = state.keys;
+  if(!k.minimaxKey){ toast('Minimax Key는 필수입니다'); return; }
   $('minimax-key').classList.add('ok');
-  $('minimax-gid').classList.add('ok');
+  
   toast('키 저장됨 (세션)');
   checkAnalyzeReady();
 });
 
 function checkAnalyzeReady(){
   const hasBook = state.paragraphs.length > 0;
-  const hasMinimax = state.keys.minimaxKey && state.keys.minimaxGid;
+  const hasMinimax = state.keys.minimaxKey;
   $('analyze-btn').disabled = !(hasBook && hasMinimax);
 }
 
@@ -561,19 +550,9 @@ async function parseEpub(file){
 }
 
 async function parsePdf(file){
-  if(!window.pdfjsLib){
-    await new Promise((resolve,reject)=>{
-      const s=document.createElement('script');
-      s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs';
-      s.type='module';
-      s.onload=resolve; s.onerror=reject;
-      document.head.appendChild(s);
-    });
-  }
-  const { getDocument, GlobalWorkerOptions } = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs');
-  GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   const ab = await file.arrayBuffer();
-  const pdf = await getDocument({ data: ab }).promise;
+  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
   let text = '';
   for(let i=1;i<=Math.min(pdf.numPages, 200);i++){
     const page = await pdf.getPage(i);
@@ -593,9 +572,25 @@ function splitParagraphs(text){
   return text.split(/\n+/).map(l=>l.trim()).filter(l=>l.length>10);
 }
 
+function readKeysFromInputs(){
+  state.keys = {
+    minimaxKey:  $('minimax-key').value.trim(),
+    claudeKey:   $('claude-key').value.trim(),
+    claudeModel: $('claude-model').value.trim() || 'claude-haiku-4-5-20251001',
+    geminiKey:   $('gemini-key').value.trim(),
+    geminiModel: $('gemini-model').value.trim() || 'gemini-2.5-pro',
+    customKey:   $('custom-key').value.trim(),
+    customUrl:   $('custom-url').value.trim(),
+    customModel: $('custom-model').value.trim(),
+  };
+}
+
 $('analyze-btn').addEventListener('click', analyzeCharacters);
 
 async function analyzeCharacters(){
+  // 분석 버튼 클릭 시점에 항상 입력값을 자동으로 읽어옴 (저장 버튼 생략 가능)
+  readKeysFromInputs();
+
   const k = state.keys;
   let hasAnalysisKey = false;
   if(state.provider==='claude' && k.claudeKey) hasAnalysisKey=true;
@@ -603,8 +598,13 @@ async function analyzeCharacters(){
   if(state.provider==='custom' && k.customKey && k.customUrl && k.customModel) hasAnalysisKey=true;
 
   if(!hasAnalysisKey){
-    toast('API 키 없음 — 수동 설정 모드로 진행합니다', true);
+    toast('API 키 없음 — 수동 설정 모드로 진행합니다');
     runSimpleCharDetectFallback();
+    return;
+  }
+
+  if(!k.minimaxKey){
+    toast('Minimax Key를 먼저 입력해주세요', true);
     return;
   }
 
@@ -830,7 +830,7 @@ async function fetchAudio(text, voiceId){
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
       text, voice_id:voiceId, speed:state.speed,
-      apiKey:state.keys.minimaxKey, groupId:state.keys.minimaxGid,
+      apiKey:state.keys.minimaxKey,
     }),
   });
   const data = await r.json();
