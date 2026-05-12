@@ -6,13 +6,14 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { text, voice_id, speed, apiKey, groupId } = req.body;
+  const { text, voice_id, speed, apiKey } = req.body;
 
-  if (!text || !voice_id || !apiKey || !groupId) {
-    return res.status(400).json({ error: 'Missing required fields: text, voice_id, apiKey, groupId' });
+  if (!text || !voice_id || !apiKey) {
+    return res.status(400).json({ error: 'Missing required fields: text, voice_id, apiKey' });
   }
 
-  const url = `https://api.minimax.io/v1/t2a_v2?GroupId=${groupId}`;
+  // Minimax 글로벌(minimax.io): API Key만으로 인증, GroupId/UID 불필요
+  const url = `https://api.minimax.io/v1/t2a_v2`;
 
   try {
     const response = await fetch(url, {

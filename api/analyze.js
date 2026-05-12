@@ -11,7 +11,8 @@ export default async function handler(req, res) {
   if (!text) return res.status(400).json({ error: 'Missing text' });
 
   const sample = text.slice(0, 4000);
-  const voiceList = voices.map(v => `- ${v.id}: ${v.name} (${v.tag})`).join('\n');
+  const safeVoices = Array.isArray(voices) ? voices : [];
+  const voiceList = safeVoices.map(v => `- ${v.id}: ${v.name} (${v.tag})`).join('\n');
 
   const prompt = `You are analyzing a book excerpt to identify characters and assign TTS voices for an audiobook.
 
@@ -61,7 +62,7 @@ Rules:
 
     if (provider === 'claude') {
       if (!claudeApiKey) return res.status(400).json({ error: 'Missing claudeApiKey' });
-      const activeClaudeModel = claudeModel || 'claude-3-haiku-20240307';
+      const activeClaudeModel = claudeModel || 'claude-haiku-4-5-20251001';
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -81,7 +82,7 @@ Rules:
     }
     else if (provider === 'gemini') {
       if (!geminiApiKey) return res.status(400).json({ error: 'Missing geminiApiKey' });
-      const activeGeminiModel = geminiModel || 'gemini-1.5-pro';
+      const activeGeminiModel = geminiModel || 'gemini-2.5-pro';
       const r = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${activeGeminiModel}:generateContent?key=${geminiApiKey}`,
         {
@@ -89,7 +90,7 @@ Rules:
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 1024, temperature: 0.3, response_mime_type: "application/json" },
+            generationConfig: { maxOutputTokens: 1024, temperature: 0.3 },
           }),
         }
       );
@@ -112,7 +113,6 @@ Rules:
           model: customModel,
           max_tokens: 1024,
           temperature: 0.3,
-          response_format: { type: "json_object" },
           messages: [{ role: 'user', content: prompt }],
         }),
       });
